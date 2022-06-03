@@ -1,12 +1,12 @@
 'use strict';
 
 
-const zlib_inflate = require('./zlib/inflate');
-const utils        = require('./utils/common');
-const strings      = require('./utils/strings');
-const msg          = require('./zlib/messages');
-const ZStream      = require('./zlib/zstream');
-const GZheader     = require('./zlib/gzheader');
+const zlib_inflate = require('../zlib/inflate');
+const utils        = require('../utils/common');
+const strings      = require('../utils/strings');
+const msg          = require('../zlib/messages');
+const ZStream      = require('../zlib/zstream');
+const GZheader     = require('../zlib/gzheader');
 
 const toString = Object.prototype.toString;
 
@@ -16,7 +16,7 @@ const toString = Object.prototype.toString;
 const {
   Z_NO_FLUSH, Z_FINISH,
   Z_OK, Z_STREAM_END, Z_NEED_DICT, Z_STREAM_ERROR, Z_DATA_ERROR, Z_MEM_ERROR
-} = require('./zlib/constants');
+} = require('../zlib/constants');
 
 /* ===========================================================================*/
 

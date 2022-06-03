@@ -1,11 +1,11 @@
 'use strict';
 
 
-const zlib_deflate = require('./zlib/deflate');
-const utils        = require('./utils/common');
-const strings      = require('./utils/strings');
-const msg          = require('./zlib/messages');
-const ZStream      = require('./zlib/zstream');
+const zlib_deflate = require('../zlib/deflate');
+const utils        = require('../utils/common');
+const strings      = require('../utils/strings');
+const msg          = require('../zlib/messages');
+const ZStream      = require('../zlib/zstream');
 
 const toString = Object.prototype.toString;
 
@@ -18,7 +18,7 @@ const {
   Z_DEFAULT_COMPRESSION,
   Z_DEFAULT_STRATEGY,
   Z_DEFLATED
-} = require('./zlib/constants');
+} = require('../zlib/constants');
 
 /* ===========================================================================*/
 
