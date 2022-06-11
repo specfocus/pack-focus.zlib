@@ -1,5 +1,3 @@
-'use strict';
-
 // Note: we can't get significant speed boost here.
 // So write code to minimize size - no pregenerated tables
 // and array tools dependencies.
@@ -24,12 +22,14 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 // Use ordinary array, since untyped makes no boost here
-const makeTable = () => {
-  let c, table = [];
+// tslint:disable: no-bitwise
+const makeTable = (): number[] => {
+  let c: number;
+  const table: number[] = [];
 
-  for (var n = 0; n < 256; n++) {
+  for (let n = 0; n < 256; n++) {
     c = n;
-    for (var k = 0; k < 8; k++) {
+    for (let k = 0; k < 8; k++) {
       c = ((c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1));
     }
     table[n] = c;
@@ -42,7 +42,7 @@ const makeTable = () => {
 const crcTable = new Uint32Array(makeTable());
 
 
-const crc32 = (crc, buf, len, pos) => {
+const crc32 = (crc: number, buf: Buffer | Uint8Array, len: number, pos: number): number => {
   const t = crcTable;
   const end = pos + len;
 
@@ -56,4 +56,4 @@ const crc32 = (crc, buf, len, pos) => {
 };
 
 
-module.exports = crc32;
+export default crc32;

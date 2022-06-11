@@ -1,5 +1,3 @@
-'use strict';
-
 // (C) 1995-2013 Jean-loup Gailly and Mark Adler
 // (C) 2014-2017 Vitaly Puzrin and Andrey Tupitsin
 //
@@ -50,14 +48,25 @@ const dext = new Uint8Array([ /* Distance codes 0..29 extra */
   28, 28, 29, 29, 64, 64
 ]);
 
-const inflate_table = (type, lens, lens_index, codes, table, table_index, work, opts) =>
-{
+// tslint:disable: no-bitwise
+// tslint:disable: variable-name
+const inflate_table = (
+  type: any,
+  lens: any,
+  lens_index: number,
+  codes: any,
+  table: any,
+  table_index: any,
+  work: any,
+  opts: any
+) => {
   const bits = opts.bits;
-      //here = opts.here; /* table entry for duplication */
+  // here = opts.here; /* table entry for duplication */
 
   let len = 0;               /* a code's length in bits */
   let sym = 0;               /* index of code symbols */
-  let min = 0, max = 0;          /* minimum and maximum code lengths */
+  let min = 0;          /* minimum and maximum code lengths */
+  let max = 0;
   let root = 0;              /* number of index bits for root table */
   let curr = 0;              /* number of index bits for current table */
   let drop = 0;              /* code bits to drop for sub-table */
@@ -71,7 +80,7 @@ const inflate_table = (type, lens, lens_index, codes, table, table_index, work, 
   let next;             /* next available space in table */
   let base = null;     /* base value table to use */
   let base_index = 0;
-//  let shoextra;    /* extra bits table to use */
+  //  let shoextra;    /* extra bits table to use */
   let end;                    /* use base and extra for symbol > end */
   const count = new Uint16Array(MAXBITS + 1); //[MAXBITS+1];    /* number of codes of each length */
   const offs = new Uint16Array(MAXBITS + 1); //[MAXBITS+1];     /* offsets in table for each length */
@@ -128,15 +137,15 @@ const inflate_table = (type, lens, lens_index, codes, table, table_index, work, 
     root = max;
   }
   if (max === 0) {                     /* no symbols to code at all */
-    //table.op[opts.table_index] = 64;  //here.op = (var char)64;    /* invalid code marker */
-    //table.bits[opts.table_index] = 1;   //here.bits = (var char)1;
-    //table.val[opts.table_index++] = 0;   //here.val = (var short)0;
+    // table.op[opts.table_index] = 64;  // here.op = (var char)64;    /* invalid code marker */
+    // table.bits[opts.table_index] = 1;   // here.bits = (var char)1;
+    // table.val[opts.table_index++] = 0;   // here.val = (var short)0;
     table[table_index++] = (1 << 24) | (64 << 16) | 0;
 
 
-    //table.op[opts.table_index] = 64;
-    //table.bits[opts.table_index] = 1;
-    //table.val[opts.table_index++] = 0;
+    // table.op[opts.table_index] = 64;
+    // table.bits[opts.table_index] = 1;
+    // table.val[opts.table_index++] = 0;
     table[table_index++] = (1 << 24) | (64 << 16) | 0;
 
     opts.bits = 1;
@@ -244,7 +253,7 @@ const inflate_table = (type, lens, lens_index, codes, table, table_index, work, 
   }
 
   /* process all codes and make table entries */
-  for (;;) {
+  for (; ;) {
     /* create table entry */
     here_bits = len - drop;
     if (work[sym] < end) {
@@ -266,7 +275,7 @@ const inflate_table = (type, lens, lens_index, codes, table, table_index, work, 
     min = fill;                 /* save offset to next table */
     do {
       fill -= incr;
-      table[next + (huff >> drop) + fill] = (here_bits << 24) | (here_op << 16) | here_val |0;
+      table[next + (huff >> drop) + fill] = (here_bits << 24) | (here_op << 16) | here_val | 0;
     } while (fill !== 0);
 
     /* backwards increment the len-bit code huff */
@@ -320,7 +329,7 @@ const inflate_table = (type, lens, lens_index, codes, table, table_index, work, 
       /*table.op[low] = curr;
       table.bits[low] = root;
       table.val[low] = next - opts.table_index;*/
-      table[low] = (root << 24) | (curr << 16) | (next - table_index) |0;
+      table[low] = (root << 24) | (curr << 16) | (next - table_index) | 0;
     }
   }
 
@@ -331,7 +340,7 @@ const inflate_table = (type, lens, lens_index, codes, table, table_index, work, 
     //table.op[next + huff] = 64;            /* invalid code marker */
     //table.bits[next + huff] = len - drop;
     //table.val[next + huff] = 0;
-    table[next + huff] = ((len - drop) << 24) | (64 << 16) |0;
+    table[next + huff] = ((len - drop) << 24) | (64 << 16) | 0;
   }
 
   /* set return parameters */
@@ -340,5 +349,4 @@ const inflate_table = (type, lens, lens_index, codes, table, table_index, work, 
   return 0;
 };
 
-
-module.exports = inflate_table;
+export default inflate_table;

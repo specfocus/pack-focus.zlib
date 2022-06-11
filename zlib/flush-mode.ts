@@ -1,7 +1,3 @@
-// Note: adler32 takes 12% for level 0 and 2% for level 6.
-// It isn't worth it to make additional optimizations as in original.
-// Small size is preferable.
-
 // (C) 1995-2013 Jean-loup Gailly and Mark Adler
 // (C) 2014-2017 Vitaly Puzrin and Andrey Tupitsin
 //
@@ -21,30 +17,21 @@
 //   misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-const adler32 = (adler: number, buf: Buffer | Uint8Array, len: number, pos: number): number => {
-  // tslint:disable: no-bitwise
-  let s1 = (adler & 0xffff) | 0;
-  let s2 = ((adler >>> 16) & 0xffff) | 0;
-  let n = 0;
-
-  while (len !== 0) {
-    // Set limit ~ twice less than 5552, to keep
-    // s2 in 31-bits, because we force signed ints.
-    // in other case %= will fail.
-    n = len > 2000 ? 2000 : len;
-    len -= n;
-
-    do {
-      s1 = (s1 + buf[pos++]) | 0;
-      s2 = (s2 + s1) | 0;
-    } while (--n);
-
-    s1 %= 65521;
-    s2 %= 65521;
-  }
-
-  return (s1 | (s2 << 16)) | 0;
-};
-
-
-export default adler32;
+/* Allowed flush values; see deflate() and inflate() below for details */
+export const Z_NO_FLUSH = 0;
+export const Z_PARTIAL_FLUSH = 1;
+export const Z_SYNC_FLUSH = 2;
+export const Z_FULL_FLUSH = 3;
+export const Z_FINISH = 4;
+export const Z_BLOCK = 5;
+export const Z_TREES = 6;
+export const Z_FLUSH_VALUES = [
+  Z_NO_FLUSH,
+  Z_PARTIAL_FLUSH,
+  Z_SYNC_FLUSH,
+  Z_FULL_FLUSH,
+  Z_FINISH,
+  Z_BLOCK,
+  Z_TREES,
+] as const;
+export type FlushMode = typeof Z_FLUSH_VALUES[number];
