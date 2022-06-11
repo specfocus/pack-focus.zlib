@@ -1,5 +1,3 @@
-'use strict';
-
 // (C) 1995-2013 Jean-loup Gailly and Mark Adler
 // (C) 2014-2017 Vitaly Puzrin and Andrey Tupitsin
 //
@@ -19,38 +17,25 @@
 //   misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-/* eslint-disable space-unary-ops */
+import { Z_FIXED, Z_FILTERED, Z_HUFFMAN_ONLY, Z_RLE } from './stratergy';
+import DeflateState from './deflate-state';
+import { DYN_TREES, STATIC_TREES, STORED_BLOCK } from './block-type';
+import { Z_BINARY, Z_TEXT, Z_UNKNOWN } from './data-type';
 
-/* Public constants ==========================================================*/
-/* ===========================================================================*/
+// tslint:disable: variable-name
+// tslint:disable: no-bitwise
+// tslint:disable: max-classes-per-file
+// tslint:disable: space-unary-ops
 
+const zero = (buf: number[] | Uint16Array | Uint8Array) => {
+  let len = buf.length;
+  while (--len >= 0) {
+    buf[len] = 0;
+  }
+};
 
-//const Z_FILTERED          = 1;
-//const Z_HUFFMAN_ONLY      = 2;
-//const Z_RLE               = 3;
-const Z_FIXED               = 4;
-//const Z_DEFAULT_STRATEGY  = 0;
-
-/* Possible values of the data_type field (though see inflate()) */
-const Z_BINARY              = 0;
-const Z_TEXT                = 1;
-//const Z_ASCII             = 1; // = Z_TEXT
-const Z_UNKNOWN             = 2;
-
-/*============================================================================*/
-
-
-function zero(buf) { let len = buf.length; while (--len >= 0) { buf[len] = 0; } }
-
-// From zutil.h
-
-const STORED_BLOCK = 0;
-const STATIC_TREES = 1;
-const DYN_TREES    = 2;
-/* The three kinds of block type */
-
-const MIN_MATCH    = 3;
-const MAX_MATCH    = 258;
+const MIN_MATCH = 3;
+const MAX_MATCH = 258;
 /* The minimum and maximum match lengths */
 
 // From deflate.h
@@ -58,28 +43,28 @@ const MAX_MATCH    = 258;
  * Internal compression state.
  */
 
-const LENGTH_CODES  = 29;
+const LENGTH_CODES = 29;
 /* number of length codes, not counting the special END_BLOCK code */
 
-const LITERALS      = 256;
+const LITERALS = 256;
 /* number of literal bytes 0..255 */
 
-const L_CODES       = LITERALS + 1 + LENGTH_CODES;
+const L_CODES = LITERALS + 1 + LENGTH_CODES;
 /* number of Literal or Length codes, including the END_BLOCK code */
 
-const D_CODES       = 30;
+const D_CODES = 30;
 /* number of distance codes */
 
-const BL_CODES      = 19;
+const BL_CODES = 19;
 /* number of codes used to transfer the bit lengths */
 
-const HEAP_SIZE     = 2 * L_CODES + 1;
+const HEAP_SIZE = 2 * L_CODES + 1;
 /* maximum heap size */
 
-const MAX_BITS      = 15;
+const MAX_BITS = 15;
 /* All codes must not exceed MAX_BITS bits */
 
-const Buf_size      = 16;
+const Buf_size = 16;
 /* size of bit buffer in bi_buf */
 
 
@@ -90,13 +75,13 @@ const Buf_size      = 16;
 const MAX_BL_BITS = 7;
 /* Bit length codes must not exceed MAX_BL_BITS bits */
 
-const END_BLOCK   = 256;
+const END_BLOCK = 256;
 /* end of block literal code */
 
-const REP_3_6     = 16;
+const REP_3_6 = 16;
 /* repeat previous bit length 3-6 times (2 bits of repeat count) */
 
-const REPZ_3_10   = 17;
+const REPZ_3_10 = 17;
 /* repeat a zero length 3-10 times  (3 bits of repeat count) */
 
 const REPZ_11_138 = 18;
@@ -104,16 +89,16 @@ const REPZ_11_138 = 18;
 
 /* eslint-disable comma-spacing,array-bracket-spacing */
 const extra_lbits =   /* extra bits for each length code */
-  new Uint8Array([0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,0]);
+  new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0]);
 
 const extra_dbits =   /* extra bits for each distance code */
-  new Uint8Array([0,0,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13]);
+  new Uint8Array([0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13]);
 
 const extra_blbits =  /* extra bits for each bit length code */
-  new Uint8Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,3,7]);
+  new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 7]);
 
 const bl_order =
-  new Uint8Array([16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15]);
+  new Uint8Array([16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]);
 /* eslint-enable comma-spacing,array-bracket-spacing */
 
 /* The lengths of the bit length codes are sent in order of decreasing
@@ -129,7 +114,7 @@ const bl_order =
 const DIST_CODE_LEN = 512; /* see definition of array dist_code below */
 
 // !!!! Use flat array instead of structure, Freq = i*2, Len = i*2+1
-const static_ltree  = new Array((L_CODES + 2) * 2);
+const static_ltree = new Uint16Array((L_CODES + 2) * 2);
 zero(static_ltree);
 /* The static literal tree. Since the bit lengths are imposed, there is no
  * need for the L_CODES extra codes used during heap construction. However
@@ -137,73 +122,71 @@ zero(static_ltree);
  * below).
  */
 
-const static_dtree  = new Array(D_CODES * 2);
+const static_dtree = new Uint16Array(D_CODES * 2);
 zero(static_dtree);
 /* The static distance tree. (Actually a trivial tree since all codes use
  * 5 bits.)
  */
 
-const _dist_code    = new Array(DIST_CODE_LEN);
+const _dist_code = new Uint16Array(DIST_CODE_LEN);
 zero(_dist_code);
 /* Distance codes. The first 256 values correspond to the distances
  * 3 .. 258, the last 256 values correspond to the top 8 bits of
  * the 15 bit distances.
  */
 
-const _length_code  = new Array(MAX_MATCH - MIN_MATCH + 1);
+const _length_code = new Uint16Array(MAX_MATCH - MIN_MATCH + 1);
 zero(_length_code);
 /* length code for each normalized match length (0 == MIN_MATCH) */
 
-const base_length   = new Array(LENGTH_CODES);
+const base_length = new Uint16Array(LENGTH_CODES);
 zero(base_length);
 /* First normalized length for each code (0 = MIN_MATCH) */
 
-const base_dist     = new Array(D_CODES);
+const base_dist = new Uint16Array(D_CODES);
 zero(base_dist);
 /* First normalized distance for each code (0 = distance of 1) */
 
+class StaticTreeDesc {
+  public has_stree: boolean;
 
-function StaticTreeDesc(static_tree, extra_bits, extra_base, elems, max_length) {
-
-  this.static_tree  = static_tree;  /* static tree or NULL */
-  this.extra_bits   = extra_bits;   /* extra bits for each code or NULL */
-  this.extra_base   = extra_base;   /* base index for extra_bits */
-  this.elems        = elems;        /* max number of elements in the tree */
-  this.max_length   = max_length;   /* max bit length for the codes */
-
-  // show if `static_tree` has data or dummy - needed for monomorphic objects
-  this.has_stree    = static_tree && static_tree.length;
+  constructor(
+    public static_tree: any,  /* static tree or NULL */
+    public extra_bits: any,   /* extra bits for each code or NULL */
+    public extra_base: any,   /* base index for extra_bits */
+    public elems: number,     /* max number of elements in the tree */
+    public max_length: number /* max bit length for the codes */
+  ) {
+    // show if `static_tree` has data or dummy - needed for monomorphic objects
+    this.has_stree = static_tree && static_tree.length;
+  }
 }
 
+let static_l_desc: StaticTreeDesc;
+let static_d_desc: StaticTreeDesc;
+let static_bl_desc: StaticTreeDesc;
 
-let static_l_desc;
-let static_d_desc;
-let static_bl_desc;
-
-
-function TreeDesc(dyn_tree, stat_desc) {
-  this.dyn_tree = dyn_tree;     /* the dynamic tree */
-  this.max_code = 0;            /* largest code with non zero frequency */
-  this.stat_desc = stat_desc;   /* the corresponding static tree */
+export class TreeDesc {
+  max_code = 0;            /* largest code with non zero frequency */
+  constructor(
+    public dyn_tree: any, /* the dynamic tree */
+    public stat_desc: any /* the corresponding static tree */
+  ) {
+  }
 }
 
-
-
-const d_code = (dist) => {
-
-  return dist < 256 ? _dist_code[dist] : _dist_code[256 + (dist >>> 7)];
-};
-
+const d_code = (dist: number) =>
+  dist < 256 ? _dist_code[dist] : _dist_code[256 + (dist >>> 7)];
 
 /* ===========================================================================
  * Output a short LSB first on the stream.
  * IN assertion: there is enough room in pendingBuf.
  */
-const put_short = (s, w) => {
-//    put_byte(s, (uch)((w) & 0xff));
-//    put_byte(s, (uch)((ush)(w) >> 8));
-  s.pending_buf[s.pending++] = (w) & 0xff;
-  s.pending_buf[s.pending++] = (w >>> 8) & 0xff;
+const put_short = (s: DeflateState, w: number): void => {
+  //    put_byte(s, (uch)((w) & 0xff));
+  //    put_byte(s, (uch)((ush)(w) >> 8));
+  s.pending_buf![s.pending++] = (w) & 0xff;
+  s.pending_buf![s.pending++] = (w >>> 8) & 0xff;
 };
 
 
@@ -211,7 +194,7 @@ const put_short = (s, w) => {
  * Send a value on a given number of bits.
  * IN assertion: length <= 16 and value fits in length bits.
  */
-const send_bits = (s, value, length) => {
+const send_bits = (s: DeflateState, value: number, length: number) => {
 
   if (s.bi_valid > (Buf_size - length)) {
     s.bi_buf |= (value << s.bi_valid) & 0xffff;
@@ -225,8 +208,7 @@ const send_bits = (s, value, length) => {
 };
 
 
-const send_code = (s, c, tree) => {
-
+const send_code = (s: DeflateState, c: number, tree: Uint16Array) => {
   send_bits(s, tree[c * 2]/*.Code*/, tree[c * 2 + 1]/*.Len*/);
 };
 
@@ -236,8 +218,7 @@ const send_code = (s, c, tree) => {
  * method would use a table)
  * IN assertion: 1 <= len <= 15
  */
-const bi_reverse = (code, len) => {
-
+const bi_reverse = (code: number, len: number): number => {
   let res = 0;
   do {
     res |= code & 1;
@@ -251,7 +232,7 @@ const bi_reverse = (code, len) => {
 /* ===========================================================================
  * Flush the bit buffer, keeping at most 7 bits in it.
  */
-const bi_flush = (s) => {
+const bi_flush = (s: DeflateState): void => {
 
   if (s.bi_valid === 16) {
     put_short(s, s.bi_buf);
@@ -259,7 +240,7 @@ const bi_flush = (s) => {
     s.bi_valid = 0;
 
   } else if (s.bi_valid >= 8) {
-    s.pending_buf[s.pending++] = s.bi_buf & 0xff;
+    s.pending_buf![s.pending++] = s.bi_buf & 0xff;
     s.bi_buf >>= 8;
     s.bi_valid -= 8;
   }
@@ -276,19 +257,20 @@ const bi_flush = (s) => {
  *     The length opt_len is updated; static_len is also updated if stree is
  *     not null.
  */
-const gen_bitlen = (s, desc) =>
+const gen_bitlen = (s: DeflateState, desc: TreeDesc) =>
 //    deflate_state *s;
 //    tree_desc *desc;    /* the tree descriptor */
 {
-  const tree            = desc.dyn_tree;
-  const max_code        = desc.max_code;
-  const stree           = desc.stat_desc.static_tree;
-  const has_stree       = desc.stat_desc.has_stree;
-  const extra           = desc.stat_desc.extra_bits;
-  const base            = desc.stat_desc.extra_base;
-  const max_length      = desc.stat_desc.max_length;
+  const tree = desc.dyn_tree;
+  const max_code = desc.max_code;
+  const stree = desc.stat_desc.static_tree;
+  const has_stree = desc.stat_desc.has_stree;
+  const extra = desc.stat_desc.extra_bits;
+  const base = desc.stat_desc.extra_base;
+  const max_length = desc.stat_desc.max_length;
   let h;              /* heap index */
-  let n, m;           /* iterate over the tree elements */
+  let n;              /* iterate over the tree elements */
+  let m;
   let bits;           /* bit length */
   let xbits;          /* extra bits */
   let f;              /* frequency */
@@ -373,7 +355,7 @@ const gen_bitlen = (s, desc) =>
  * OUT assertion: the field code is set for all tree elements of non
  *     zero code length.
  */
-const gen_codes = (tree, max_code, bl_count) =>
+const gen_codes = (tree: Uint16Array, max_code: number, bl_count: Uint16Array) =>
 //    ct_data *tree;             /* the tree to decorate */
 //    int max_code;              /* largest code with non zero frequency */
 //    ushf *bl_count;            /* number of codes at each bit length */
@@ -392,17 +374,17 @@ const gen_codes = (tree, max_code, bl_count) =>
   /* Check that the bit counts in bl_count are consistent. The last code
    * must be all ones.
    */
-  //Assert (code + bl_count[MAX_BITS]-1 == (1<<MAX_BITS)-1,
+  // Assert (code + bl_count[MAX_BITS]-1 == (1<<MAX_BITS)-1,
   //        "inconsistent bit counts");
-  //Tracev((stderr,"\ngen_codes: max_code %d ", max_code));
+  // Tracev((stderr,"\ngen_codes: max_code %d ", max_code));
 
-  for (n = 0;  n <= max_code; n++) {
-    let len = tree[n * 2 + 1]/*.Len*/;
+  for (n = 0; n <= max_code; n++) {
+    const len = tree[n * 2 + 1]/*.Len*/;
     if (len === 0) { continue; }
     /* Now reverse the bits */
     tree[n * 2]/*.Code*/ = bi_reverse(next_code[len]++, len);
 
-    //Tracecv(tree != static_ltree, (stderr,"\nn %3d %c l %2d c %4x (%x) ",
+    // Tracecv(tree != static_ltree, (stderr,"\nn %3d %c l %2d c %4x (%x) ",
     //     n, (isgraph(n) ? n : ' '), len, tree[n].Code, next_code[len]-1));
   }
 };
@@ -418,20 +400,20 @@ const tr_static_init = () => {
   let length;   /* length value */
   let code;     /* code value */
   let dist;     /* distance index */
-  const bl_count = new Array(MAX_BITS + 1);
+  const bl_count = new Uint16Array(MAX_BITS + 1);
   /* number of codes at each bit length for an optimal tree */
 
   // do check in _tr_init()
-  //if (static_init_done) return;
+  // if (static_init_done) return;
 
   /* For some embedded targets, global variables are not initialized: */
-/*#ifdef NO_INIT_GLOBAL_POINTERS
-  static_l_desc.static_tree = static_ltree;
-  static_l_desc.extra_bits = extra_lbits;
-  static_d_desc.static_tree = static_dtree;
-  static_d_desc.extra_bits = extra_dbits;
-  static_bl_desc.extra_bits = extra_blbits;
-#endif*/
+  /*#ifdef NO_INIT_GLOBAL_POINTERS
+    static_l_desc.static_tree = static_ltree;
+    static_l_desc.extra_bits = extra_lbits;
+    static_d_desc.static_tree = static_dtree;
+    static_d_desc.extra_bits = extra_dbits;
+    static_bl_desc.extra_bits = extra_blbits;
+  #endif*/
 
   /* Initialize the mapping length (0..255) -> length code (0..28) */
   length = 0;
@@ -441,7 +423,7 @@ const tr_static_init = () => {
       _length_code[length++] = code;
     }
   }
-  //Assert (length == 256, "tr_static_init: length != 256");
+  // Assert (length == 256, "tr_static_init: length != 256");
   /* Note that the length 255 (match length 258) can be represented
    * in two different ways: code 284 + 5 bits or code 285, so we
    * overwrite length_code[255] to use the best encoding:
@@ -456,7 +438,7 @@ const tr_static_init = () => {
       _dist_code[dist++] = code;
     }
   }
-  //Assert (dist == 256, "tr_static_init: dist != 256");
+  // Assert (dist == 256, "tr_static_init: dist != 256");
   dist >>= 7; /* from now on, all distances are divided by 128 */
   for (; code < D_CODES; code++) {
     base_dist[code] = dist << 7;
@@ -464,7 +446,7 @@ const tr_static_init = () => {
       _dist_code[256 + dist++] = code;
     }
   }
-  //Assert (dist == 256, "tr_static_init: 256+dist != 512");
+  // Assert (dist == 256, "tr_static_init: 256+dist != 512");
 
   /* Construct the codes of the static literal tree */
   for (bits = 0; bits <= MAX_BITS; bits++) {
@@ -506,23 +488,23 @@ const tr_static_init = () => {
 
   // Now data ready and we can init static trees
   static_l_desc = new StaticTreeDesc(static_ltree, extra_lbits, LITERALS + 1, L_CODES, MAX_BITS);
-  static_d_desc = new StaticTreeDesc(static_dtree, extra_dbits, 0,          D_CODES, MAX_BITS);
-  static_bl_desc = new StaticTreeDesc(new Array(0), extra_blbits, 0,         BL_CODES, MAX_BL_BITS);
+  static_d_desc = new StaticTreeDesc(static_dtree, extra_dbits, 0, D_CODES, MAX_BITS);
+  static_bl_desc = new StaticTreeDesc(new Array(0), extra_blbits, 0, BL_CODES, MAX_BL_BITS);
 
-  //static_init_done = true;
+  // static_init_done = true;
 };
 
 
 /* ===========================================================================
  * Initialize a new block.
  */
-const init_block = (s) => {
+const init_block = (s: DeflateState) => {
 
   let n; /* iterates over tree elements */
 
   /* Initialize the trees. */
-  for (n = 0; n < L_CODES;  n++) { s.dyn_ltree[n * 2]/*.Freq*/ = 0; }
-  for (n = 0; n < D_CODES;  n++) { s.dyn_dtree[n * 2]/*.Freq*/ = 0; }
+  for (n = 0; n < L_CODES; n++) { s.dyn_ltree[n * 2]/*.Freq*/ = 0; }
+  for (n = 0; n < D_CODES; n++) { s.dyn_dtree[n * 2]/*.Freq*/ = 0; }
   for (n = 0; n < BL_CODES; n++) { s.bl_tree[n * 2]/*.Freq*/ = 0; }
 
   s.dyn_ltree[END_BLOCK * 2]/*.Freq*/ = 1;
@@ -534,13 +516,12 @@ const init_block = (s) => {
 /* ===========================================================================
  * Flush the bit buffer and align the output on a byte boundary
  */
-const bi_windup = (s) =>
-{
+const bi_windup = (s: DeflateState) => {
   if (s.bi_valid > 8) {
     put_short(s, s.bi_buf);
   } else if (s.bi_valid > 0) {
-    //put_byte(s, (Byte)s->bi_buf);
-    s.pending_buf[s.pending++] = s.bi_buf;
+    // put_byte(s, (Byte)s->bi_buf);
+    s.pending_buf![s.pending++] = s.bi_buf;
   }
   s.bi_buf = 0;
   s.bi_valid = 0;
@@ -550,11 +531,11 @@ const bi_windup = (s) =>
  * Copy a stored block, storing first the length and its
  * one's complement if requested.
  */
-const copy_block = (s, buf, len, header) =>
-//DeflateState *s;
-//charf    *buf;    /* the input data */
-//unsigned len;     /* its length */
-//int      header;  /* true if block header must be written */
+const copy_block = (s: DeflateState, buf: number, len: number, header: boolean) =>
+// DeflateState *s;
+// charf    *buf;    /* the input data */
+// unsigned len;     /* its length */
+// int      header;  /* true if block header must be written */
 {
   bi_windup(s);        /* align on byte boundary */
 
@@ -562,10 +543,10 @@ const copy_block = (s, buf, len, header) =>
     put_short(s, len);
     put_short(s, ~len);
   }
-//  while (len--) {
-//    put_byte(s, *buf++);
-//  }
-  s.pending_buf.set(s.window.subarray(buf, buf + len), s.pending);
+  //  while (len--) {
+  //    put_byte(s, *buf++);
+  //  }
+  s.pending_buf!.set(s.window!.subarray(buf, buf + len), s.pending);
   s.pending += len;
 };
 
@@ -573,12 +554,12 @@ const copy_block = (s, buf, len, header) =>
  * Compares to subtrees, using the tree depth as tie breaker when
  * the subtrees have equal frequency. This minimizes the worst case length.
  */
-const smaller = (tree, n, m, depth) => {
+const smaller = (tree: number[], n: number, m: number, depth: Uint16Array) => {
 
   const _n2 = n * 2;
   const _m2 = m * 2;
   return (tree[_n2]/*.Freq*/ < tree[_m2]/*.Freq*/ ||
-         (tree[_n2]/*.Freq*/ === tree[_m2]/*.Freq*/ && depth[n] <= depth[m]));
+    (tree[_n2]/*.Freq*/ === tree[_m2]/*.Freq*/ && depth[n] <= depth[m]));
 };
 
 /* ===========================================================================
@@ -587,7 +568,7 @@ const smaller = (tree, n, m, depth) => {
  * when the heap property is re-established (each father smaller than its
  * two sons).
  */
-const pqdownheap = (s, tree, k) =>
+const pqdownheap = (s: DeflateState, tree: number[], k: number) =>
 //    deflate_state *s;
 //    ct_data *tree;  /* the tree to restore */
 //    int k;               /* node to move down */
@@ -620,7 +601,7 @@ const pqdownheap = (s, tree, k) =>
 /* ===========================================================================
  * Send the block data compressed using the given Huffman trees
  */
-const compress_block = (s, ltree, dtree) =>
+const compress_block = (s: DeflateState, ltree: Uint16Array, dtree: Uint16Array) =>
 //    deflate_state *s;
 //    const ct_data *ltree; /* literal tree */
 //    const ct_data *dtree; /* distance tree */
@@ -633,13 +614,13 @@ const compress_block = (s, ltree, dtree) =>
 
   if (s.last_lit !== 0) {
     do {
-      dist = (s.pending_buf[s.d_buf + lx * 2] << 8) | (s.pending_buf[s.d_buf + lx * 2 + 1]);
-      lc = s.pending_buf[s.l_buf + lx];
+      dist = (s.pending_buf![s.d_buf + lx * 2] << 8) | (s.pending_buf![s.d_buf + lx * 2 + 1]);
+      lc = s.pending_buf![s.l_buf + lx];
       lx++;
 
       if (dist === 0) {
         send_code(s, lc, ltree); /* send a literal byte */
-        //Tracecv(isgraph(lc), (stderr," '%c' ", lc));
+        // Tracecv(isgraph(lc), (stderr," '%c' ", lc));
       } else {
         /* Here, lc is the match length - MIN_MATCH */
         code = _length_code[lc];
@@ -651,7 +632,7 @@ const compress_block = (s, ltree, dtree) =>
         }
         dist--; /* dist is now the match distance - 1 */
         code = d_code(dist);
-        //Assert (code < D_CODES, "bad d_code");
+        // Assert (code < D_CODES, "bad d_code");
 
         send_code(s, code, dtree);       /* send the distance code */
         extra = extra_dbits[code];
@@ -662,7 +643,7 @@ const compress_block = (s, ltree, dtree) =>
       } /* literal or match pair ? */
 
       /* Check that the overlay between pending_buf and d_buf+l_buf is ok: */
-      //Assert((uInt)(s->pending) < s->lit_bufsize + 2*lx,
+      // Assert((uInt)(s->pending) < s->lit_bufsize + 2*lx,
       //       "pendingBuf overflow");
 
     } while (lx < s.last_lit);
@@ -680,15 +661,16 @@ const compress_block = (s, ltree, dtree) =>
  *     and corresponding code. The length opt_len is updated; static_len is
  *     also updated if stree is not null. The field max_code is set.
  */
-const build_tree = (s, desc) =>
+const build_tree = (s: DeflateState, desc: TreeDesc) =>
 //    deflate_state *s;
 //    tree_desc *desc; /* the tree descriptor */
 {
-  const tree     = desc.dyn_tree;
-  const stree    = desc.stat_desc.static_tree;
+  const tree = desc.dyn_tree;
+  const stree = desc.stat_desc.static_tree;
   const has_stree = desc.stat_desc.has_stree;
-  const elems    = desc.stat_desc.elems;
-  let n, m;          /* iterate over heap elements */
+  const elems = desc.stat_desc.elems;
+  let n;          /* iterate over heap elements */
+  let m;
   let max_code = -1; /* largest code with non zero frequency */
   let node;          /* new node being created */
 
@@ -737,7 +719,7 @@ const build_tree = (s, desc) =>
    */
   node = elems;              /* next internal node of the tree */
   do {
-    //pqremove(s, tree, n);  /* n = node of least frequency */
+    // pqremove(s, tree, n);  /* n = node of least frequency */
     /*** pqremove ***/
     n = s.heap[1/*SMALLEST*/];
     s.heap[1/*SMALLEST*/] = s.heap[s.heap_len--];
@@ -776,7 +758,7 @@ const build_tree = (s, desc) =>
  * Scan a literal or distance tree to determine the frequencies of the codes
  * in the bit length tree.
  */
-const scan_tree = (s, tree, max_code) =>
+const scan_tree = (s: DeflateState, tree: Uint16Array, max_code: number) =>
 //    deflate_state *s;
 //    ct_data *tree;   /* the tree to be scanned */
 //    int max_code;    /* and its largest code of non zero frequency */
@@ -842,7 +824,7 @@ const scan_tree = (s, tree, max_code) =>
  * Send a literal or distance tree in compressed form, using the codes in
  * bl_tree.
  */
-const send_tree = (s, tree, max_code) =>
+const send_tree = (s: DeflateState, tree: Uint16Array, max_code: number): void =>
 //    deflate_state *s;
 //    ct_data *tree; /* the tree to be scanned */
 //    int max_code;       /* and its largest code of non zero frequency */
@@ -878,7 +860,7 @@ const send_tree = (s, tree, max_code) =>
         send_code(s, curlen, s.bl_tree);
         count--;
       }
-      //Assert(count >= 3 && count <= 6, " 3_6?");
+      // Assert(count >= 3 && count <= 6, " 3_6?");
       send_code(s, REP_3_6, s.bl_tree);
       send_bits(s, count - 3, 2);
 
@@ -913,16 +895,16 @@ const send_tree = (s, tree, max_code) =>
  * Construct the Huffman tree for the bit lengths and return the index in
  * bl_order of the last bit length code to send.
  */
-const build_bl_tree = (s) => {
+const build_bl_tree = (s: DeflateState) => {
 
   let max_blindex;  /* index of last bit length code of non zero freq */
 
   /* Determine the bit length frequencies for literal and distance trees */
-  scan_tree(s, s.dyn_ltree, s.l_desc.max_code);
-  scan_tree(s, s.dyn_dtree, s.d_desc.max_code);
+  scan_tree(s, s.dyn_ltree, s.l_desc!.max_code);
+  scan_tree(s, s.dyn_dtree, s.d_desc!.max_code);
 
   /* Build the bit length tree: */
-  build_tree(s, s.bl_desc);
+  build_tree(s, s.bl_desc!);
   /* opt_len now includes the length of the tree representations, except
    * the lengths of the bit lengths codes and the 5+5+4 bits for the counts.
    */
@@ -938,7 +920,7 @@ const build_bl_tree = (s) => {
   }
   /* Update opt_len to include the bit length tree and counts */
   s.opt_len += 3 * (max_blindex + 1) + 5 + 5 + 4;
-  //Tracev((stderr, "\ndyn trees: dyn %ld, stat %ld",
+  // Tracev((stderr, "\ndyn trees: dyn %ld, stat %ld",
   //        s->opt_len, s->static_len));
 
   return max_blindex;
@@ -950,30 +932,30 @@ const build_bl_tree = (s) => {
  * lengths of the bit length codes, the literal tree and the distance tree.
  * IN assertion: lcodes >= 257, dcodes >= 1, blcodes >= 4.
  */
-const send_all_trees = (s, lcodes, dcodes, blcodes) =>
+const send_all_trees = (s: DeflateState, lcodes: number, dcodes: number, blcodes: number) =>
 //    deflate_state *s;
 //    int lcodes, dcodes, blcodes; /* number of codes for each tree */
 {
   let rank;                    /* index in bl_order */
 
-  //Assert (lcodes >= 257 && dcodes >= 1 && blcodes >= 4, "not enough codes");
-  //Assert (lcodes <= L_CODES && dcodes <= D_CODES && blcodes <= BL_CODES,
+  // Assert (lcodes >= 257 && dcodes >= 1 && blcodes >= 4, "not enough codes");
+  // Assert (lcodes <= L_CODES && dcodes <= D_CODES && blcodes <= BL_CODES,
   //        "too many codes");
-  //Tracev((stderr, "\nbl counts: "));
+  // Tracev((stderr, "\nbl counts: "));
   send_bits(s, lcodes - 257, 5); /* not +255 as stated in appnote.txt */
-  send_bits(s, dcodes - 1,   5);
-  send_bits(s, blcodes - 4,  4); /* not -3 as stated in appnote.txt */
+  send_bits(s, dcodes - 1, 5);
+  send_bits(s, blcodes - 4, 4); /* not -3 as stated in appnote.txt */
   for (rank = 0; rank < blcodes; rank++) {
-    //Tracev((stderr, "\nbl code %2d ", bl_order[rank]));
+    // Tracev((stderr, "\nbl code %2d ", bl_order[rank]));
     send_bits(s, s.bl_tree[bl_order[rank] * 2 + 1]/*.Len*/, 3);
   }
-  //Tracev((stderr, "\nbl tree: sent %ld", s->bits_sent));
+  // Tracev((stderr, "\nbl tree: sent %ld", s->bits_sent));
 
   send_tree(s, s.dyn_ltree, lcodes - 1); /* literal tree */
-  //Tracev((stderr, "\nlit tree: sent %ld", s->bits_sent));
+  // Tracev((stderr, "\nlit tree: sent %ld", s->bits_sent));
 
   send_tree(s, s.dyn_dtree, dcodes - 1); /* distance tree */
-  //Tracev((stderr, "\ndist tree: sent %ld", s->bits_sent));
+  // Tracev((stderr, "\ndist tree: sent %ld", s->bits_sent));
 };
 
 
@@ -990,7 +972,7 @@ const send_all_trees = (s, lcodes, dcodes, blcodes) =>
  *   (7 {BEL}, 8 {BS}, 11 {VT}, 12 {FF}, 26 {SUB}, 27 {ESC}).
  * IN assertion: the fields Freq of dyn_ltree are set.
  */
-const detect_data_type = (s) => {
+const detect_data_type = (s: DeflateState): typeof Z_BINARY | typeof Z_TEXT => {
   /* black_mask is the bit mask of black-listed bytes
    * set bits 0..6, 14..25, and 28..31
    * 0xf3ffc07f = binary 11110011111111111100000001111111
@@ -1007,7 +989,7 @@ const detect_data_type = (s) => {
 
   /* Check for textual ("white-listed") bytes. */
   if (s.dyn_ltree[9 * 2]/*.Freq*/ !== 0 || s.dyn_ltree[10 * 2]/*.Freq*/ !== 0 ||
-      s.dyn_ltree[13 * 2]/*.Freq*/ !== 0) {
+    s.dyn_ltree[13 * 2]/*.Freq*/ !== 0) {
     return Z_TEXT;
   }
   for (n = 32; n < LITERALS; n++) {
@@ -1028,16 +1010,15 @@ let static_init_done = false;
 /* ===========================================================================
  * Initialize the tree data structures for a new zlib stream.
  */
-const _tr_init = (s) =>
-{
+export const _tr_init = (s: DeflateState) => {
 
   if (!static_init_done) {
     tr_static_init();
     static_init_done = true;
   }
 
-  s.l_desc  = new TreeDesc(s.dyn_ltree, static_l_desc);
-  s.d_desc  = new TreeDesc(s.dyn_dtree, static_d_desc);
+  s.l_desc = new TreeDesc(s.dyn_ltree, static_l_desc);
+  s.d_desc = new TreeDesc(s.dyn_dtree, static_d_desc);
   s.bl_desc = new TreeDesc(s.bl_tree, static_bl_desc);
 
   s.bi_buf = 0;
@@ -1051,11 +1032,11 @@ const _tr_init = (s) =>
 /* ===========================================================================
  * Send a stored block
  */
-const _tr_stored_block = (s, buf, stored_len, last) =>
-//DeflateState *s;
-//charf *buf;       /* input block */
-//ulg stored_len;   /* length of input block */
-//int last;         /* one if this is the last block for a file */
+export const _tr_stored_block = (s: DeflateState, buf: number, stored_len: number, last: boolean) =>
+// DeflateState *s;
+// charf *buf;       /* input block */
+// ulg stored_len;   /* length of input block */
+// int last;         /* one if this is the last block for a file */
 {
   send_bits(s, (STORED_BLOCK << 1) + (last ? 1 : 0), 3);    /* send block type */
   copy_block(s, buf, stored_len, true); /* with header */
@@ -1066,7 +1047,7 @@ const _tr_stored_block = (s, buf, stored_len, last) =>
  * Send one empty static block to give enough lookahead for inflate.
  * This takes 10 bits, of which 7 may remain in the bit buffer.
  */
-const _tr_align = (s) => {
+export const _tr_align = (s: DeflateState) => {
   send_bits(s, STATIC_TREES << 1, 3);
   send_code(s, END_BLOCK, static_ltree);
   bi_flush(s);
@@ -1077,29 +1058,30 @@ const _tr_align = (s) => {
  * Determine the best encoding for the current block: dynamic trees, static
  * trees or store, and output the encoded block to the zip file.
  */
-const _tr_flush_block = (s, buf, stored_len, last) =>
-//DeflateState *s;
-//charf *buf;       /* input block, or NULL if too old */
-//ulg stored_len;   /* length of input block */
-//int last;         /* one if this is the last block for a file */
+export const _tr_flush_block = (s: DeflateState, buf: number, stored_len: number, last: boolean) =>
+// DeflateState *s;
+// charf *buf;       /* input block, or NULL if too old */
+// ulg stored_len;   /* length of input block */
+// int last;         /* one if this is the last block for a file */
 {
-  let opt_lenb, static_lenb;  /* opt_len and static_len in bytes */
-  let max_blindex = 0;        /* index of last bit length code of non zero freq */
+  let opt_lenb;          /* opt_len and static_len in bytes */
+  let static_lenb;
+  let max_blindex = 0;   /* index of last bit length code of non zero freq */
 
   /* Build the Huffman trees unless a stored block is forced */
   if (s.level > 0) {
 
     /* Check if the file is binary or text */
-    if (s.strm.data_type === Z_UNKNOWN) {
-      s.strm.data_type = detect_data_type(s);
+    if (s.strm!.data_type === Z_UNKNOWN) {
+      s.strm!.data_type = detect_data_type(s);
     }
 
     /* Construct the literal and distance trees */
-    build_tree(s, s.l_desc);
+    build_tree(s, s.l_desc!);
     // Tracev((stderr, "\nlit data: dyn %ld, stat %ld", s->opt_len,
     //        s->static_len));
 
-    build_tree(s, s.d_desc);
+    build_tree(s, s.d_desc!);
     // Tracev((stderr, "\ndist data: dyn %ld, stat %ld", s->opt_len,
     //        s->static_len));
     /* At this point, opt_len and static_len are the total bit lengths of
@@ -1144,7 +1126,7 @@ const _tr_flush_block = (s, buf, stored_len, last) =>
 
   } else {
     send_bits(s, (DYN_TREES << 1) + (last ? 1 : 0), 3);
-    send_all_trees(s, s.l_desc.max_code + 1, s.d_desc.max_code + 1, max_blindex + 1);
+    send_all_trees(s, s.l_desc!.max_code + 1, s.d_desc!.max_code + 1, max_blindex + 1);
     compress_block(s, s.dyn_ltree, s.dyn_dtree);
   }
   // Assert (s->compressed_len == s->bits_sent, "bad compressed size");
@@ -1164,17 +1146,17 @@ const _tr_flush_block = (s, buf, stored_len, last) =>
  * Save the match info and tally the frequency counts. Return true if
  * the current block must be flushed.
  */
-const _tr_tally = (s, dist, lc) =>
+export const _tr_tally = (s: DeflateState, dist: number, lc: number): boolean =>
 //    deflate_state *s;
 //    unsigned dist;  /* distance of matched string */
 //    unsigned lc;    /* match length-MIN_MATCH or unmatched char (if dist==0) */
 {
-  //let out_length, in_length, dcode;
+  // let out_length, in_length, dcode;
 
-  s.pending_buf[s.d_buf + s.last_lit * 2]     = (dist >>> 8) & 0xff;
-  s.pending_buf[s.d_buf + s.last_lit * 2 + 1] = dist & 0xff;
+  s.pending_buf![s.d_buf + s.last_lit * 2] = (dist >>> 8) & 0xff;
+  s.pending_buf![s.d_buf + s.last_lit * 2 + 1] = dist & 0xff;
 
-  s.pending_buf[s.l_buf + s.last_lit] = lc & 0xff;
+  s.pending_buf![s.l_buf + s.last_lit] = lc & 0xff;
   s.last_lit++;
 
   if (dist === 0) {
@@ -1184,7 +1166,7 @@ const _tr_tally = (s, dist, lc) =>
     s.matches++;
     /* Here, lc is the match length - MIN_MATCH */
     dist--;             /* dist = match distance - 1 */
-    //Assert((ush)dist < (ush)MAX_DIST(s) &&
+    // Assert((ush)dist < (ush)MAX_DIST(s) &&
     //       (ush)lc <= (ush)(MAX_MATCH-MIN_MATCH) &&
     //       (ush)d_code(dist) < (ush)D_CODES,  "_tr_tally: bad match");
 
@@ -1192,28 +1174,28 @@ const _tr_tally = (s, dist, lc) =>
     s.dyn_dtree[d_code(dist) * 2]/*.Freq*/++;
   }
 
-// (!) This block is disabled in zlib defaults,
-// don't enable it for binary compatibility
+  // (!) This block is disabled in zlib defaults,
+  // don't enable it for binary compatibility
 
-//#ifdef TRUNCATE_BLOCK
-//  /* Try to guess if it is profitable to stop the current block here */
-//  if ((s.last_lit & 0x1fff) === 0 && s.level > 2) {
-//    /* Compute an upper bound for the compressed length */
-//    out_length = s.last_lit*8;
-//    in_length = s.strstart - s.block_start;
-//
-//    for (dcode = 0; dcode < D_CODES; dcode++) {
-//      out_length += s.dyn_dtree[dcode*2]/*.Freq*/ * (5 + extra_dbits[dcode]);
-//    }
-//    out_length >>>= 3;
-//    //Tracev((stderr,"\nlast_lit %u, in %ld, out ~%ld(%ld%%) ",
-//    //       s->last_lit, in_length, out_length,
-//    //       100L - out_length*100L/in_length));
-//    if (s.matches < (s.last_lit>>1)/*int /2*/ && out_length < (in_length>>1)/*int /2*/) {
-//      return true;
-//    }
-//  }
-//#endif
+  // #ifdef TRUNCATE_BLOCK
+  //  /* Try to guess if it is profitable to stop the current block here */
+  //  if ((s.last_lit & 0x1fff) === 0 && s.level > 2) {
+  //    /* Compute an upper bound for the compressed length */
+  //    out_length = s.last_lit*8;
+  //    in_length = s.strstart - s.block_start;
+  //
+  //    for (dcode = 0; dcode < D_CODES; dcode++) {
+  //      out_length += s.dyn_dtree[dcode*2]/*.Freq*/ * (5 + extra_dbits[dcode]);
+  //    }
+  //    out_length >>>= 3;
+  //    //Tracev((stderr,"\nlast_lit %u, in %ld, out ~%ld(%ld%%) ",
+  //    //       s->last_lit, in_length, out_length,
+  //    //       100L - out_length*100L/in_length));
+  //    if (s.matches < (s.last_lit>>1)/*int /2*/ && out_length < (in_length>>1)/*int /2*/) {
+  //      return true;
+  //    }
+  //  }
+  // #endif
 
   return (s.last_lit === s.lit_bufsize - 1);
   /* We avoid equality with lit_bufsize because of wraparound at 64K
@@ -1221,9 +1203,3 @@ const _tr_tally = (s, dist, lc) =>
    * 64K-1 bytes.
    */
 };
-
-module.exports._tr_init  = _tr_init;
-module.exports._tr_stored_block = _tr_stored_block;
-module.exports._tr_flush_block  = _tr_flush_block;
-module.exports._tr_tally = _tr_tally;
-module.exports._tr_align = _tr_align;
