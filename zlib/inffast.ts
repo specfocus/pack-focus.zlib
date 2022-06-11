@@ -1,5 +1,3 @@
-'use strict';
-
 // (C) 1995-2013 Jean-loup Gailly and Mark Adler
 // (C) 2014-2017 Vitaly Puzrin and Andrey Tupitsin
 //
@@ -18,6 +16,9 @@
 // 2. Altered source versions must be plainly marked as such, and must not be
 //   misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
+
+
+import { InflateStream } from './inflate-state';
 
 // See state defs from inflate.js
 const BAD = 30;       /* got a data error -- remain here until reset */
@@ -58,15 +59,16 @@ const TYPE = 12;      /* i: waiting for type bits, including last-flag bit */
       requires strm.avail_out >= 258 for each loop to avoid checking for
       output space.
  */
-module.exports = function inflate_fast(strm, start) {
+// tslint:disable: no-bitwise
+function inflate_fast(strm: InflateStream, start: number) {
   let _in;                    /* local strm.input */
   let last;                   /* have enough input while in < last */
   let _out;                   /* local strm.output */
   let beg;                    /* inflate()'s initial strm.output */
   let end;                    /* while out < end, enough space available */
-//#ifdef INFLATE_STRICT
+// #ifdef INFLATE_STRICT
   let dmax;                   /* maximum distance from zlib header */
-//#endif
+// #endif
   let wsize;                  /* window size or zero if not using window */
   let whave;                  /* valid bytes in the window */
   let wnext;                  /* window write index */
@@ -87,29 +89,30 @@ module.exports = function inflate_fast(strm, start) {
   let from_source;
 
 
-  let input, output; // JS specific, because we have no pointers
+  let input; // JS specific, because we have no pointers
+  let output;
 
   /* copy state to local variables */
-  const state = strm.state;
-  //here = state.here;
+  const state = strm.state!;
+  // here = state.here;
   _in = strm.next_in;
-  input = strm.input;
+  input = strm.input!;
   last = _in + (strm.avail_in - 5);
   _out = strm.next_out;
-  output = strm.output;
+  output = strm.output!;
   beg = _out - (start - strm.avail_out);
   end = _out + (strm.avail_out - 257);
-//#ifdef INFLATE_STRICT
+// #ifdef INFLATE_STRICT
   dmax = state.dmax;
-//#endif
+// #endif
   wsize = state.wsize;
   whave = state.whave;
   wnext = state.wnext;
-  s_window = state.window;
+  s_window = state.window!;
   hold = state.hold;
   bits = state.bits;
-  lcode = state.lencode;
-  dcode = state.distcode;
+  lcode = state.lencode!;
+  dcode = state.distcode!;
   lmask = (1 << state.lenbits) - 1;
   dmask = (1 << state.distbits) - 1;
 
@@ -135,7 +138,7 @@ module.exports = function inflate_fast(strm, start) {
       bits -= op;
       op = (here >>> 16) & 0xff/*here.op*/;
       if (op === 0) {                          /* literal */
-        //Tracevv((stderr, here.val >= 0x20 && here.val < 0x7f ?
+        // Tracevv((stderr, here.val >= 0x20 && here.val < 0x7f ?
         //        "inflate:         literal '%c'\n" :
         //        "inflate:         literal 0x%02x\n", here.val));
         output[_out++] = here & 0xffff/*here.val*/;
@@ -152,7 +155,7 @@ module.exports = function inflate_fast(strm, start) {
           hold >>>= op;
           bits -= op;
         }
-        //Tracevv((stderr, "inflate:         length %u\n", len));
+        // Tracevv((stderr, "inflate:         length %u\n", len));
         if (bits < 15) {
           hold += input[_in++] << bits;
           bits += 8;
@@ -172,24 +175,24 @@ module.exports = function inflate_fast(strm, start) {
             dist = here & 0xffff/*here.val*/;
             op &= 15;                       /* number of extra bits */
             if (bits < op) {
-              hold += input[_in++] << bits;
+              hold += input![_in++] << bits;
               bits += 8;
               if (bits < op) {
-                hold += input[_in++] << bits;
+                hold += input![_in++] << bits;
                 bits += 8;
               }
             }
             dist += hold & ((1 << op) - 1);
-//#ifdef INFLATE_STRICT
+// #ifdef INFLATE_STRICT
             if (dist > dmax) {
               strm.msg = 'invalid distance too far back';
               state.mode = BAD;
               break top;
             }
-//#endif
+// #endif
             hold >>>= op;
             bits -= op;
-            //Tracevv((stderr, "inflate:         distance %u\n", dist));
+            // Tracevv((stderr, "inflate:         distance %u\n", dist));
             op = _out - beg;                /* max distance in output */
             if (dist > op) {                /* see if copy from window */
               op = dist - op;               /* distance back in window */
@@ -202,7 +205,7 @@ module.exports = function inflate_fast(strm, start) {
 
 // (!) This block is disabled in zlib defaults,
 // don't enable it for binary compatibility
-//#ifdef INFLATE_ALLOW_INVALID_DISTANCE_TOOFAR_ARRR
+// #ifdef INFLATE_ALLOW_INVALID_DISTANCE_TOOFAR_ARRR
 //                if (len <= op - whave) {
 //                  do {
 //                    output[_out++] = 0;
@@ -220,7 +223,7 @@ module.exports = function inflate_fast(strm, start) {
 //                  } while (--len);
 //                  continue top;
 //                }
-//#endif
+// #endif
               }
               from = 0; // window index
               from_source = s_window;
@@ -313,7 +316,7 @@ module.exports = function inflate_fast(strm, start) {
         continue dolen;
       }
       else if (op & 32) {                     /* end-of-block */
-        //Tracevv((stderr, "inflate:         end of block\n"));
+        // Tracevv((stderr, "inflate:         end of block\n"));
         state.mode = TYPE;
         break top;
       }
@@ -342,3 +345,5 @@ module.exports = function inflate_fast(strm, start) {
   state.bits = bits;
   return;
 };
+
+export default inflate_fast;
