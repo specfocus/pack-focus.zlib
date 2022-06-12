@@ -11,7 +11,7 @@ const msg = require('../lib/zlib/messages');
 const zlib_deflate = require('../lib/zlib/deflate');
 const ZStream = require('../lib/zlib/zstream');
 
-const pako  = require('../index');
+const pako  = require('..');
 
 
 const short_sample = 'hello world';

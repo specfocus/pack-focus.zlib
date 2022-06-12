@@ -5,7 +5,7 @@ const fs      = require('fs');
 const path    = require('path');
 const assert  = require('assert');
 
-const pako    = require('../index');
+const pako    = require('..');
 
 describe('ArrayBuffer', () => {
 

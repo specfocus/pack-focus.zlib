@@ -3,7 +3,7 @@
 
 const assert = require('assert');
 const { loadSamples } = require('./helpers');
-const pako = require('../index');
+const pako = require('..');
 
 
 const samples = loadSamples();

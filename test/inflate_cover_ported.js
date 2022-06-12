@@ -10,7 +10,7 @@ const msg = require('../lib/zlib/messages');
 const zlib_inflate = require('../lib/zlib/inflate');
 const inflate_table = require('../lib/zlib/inftrees');
 
-const pako  = require('../index');
+const pako  = require('..');
 
 
 function h2b(hex) {

@@ -6,7 +6,7 @@ const path    = require('path');
 const assert  = require('assert');
 const zlib    = require('zlib');
 
-const pako    = require('../index');
+const pako    = require('..');
 const { Z_SYNC_FLUSH } = require('../lib/zlib/constants');
 
 

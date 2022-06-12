@@ -4,7 +4,7 @@ const assert  = require('assert');
 const fs      = require('fs');
 const path    = require('path');
 
-const pako        = require('../index');
+const pako        = require('..');
 const loadSamples = require('./helpers').loadSamples;
 
 const sample = loadSamples().lorem_en_100k;

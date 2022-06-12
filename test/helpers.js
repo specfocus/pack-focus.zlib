@@ -5,7 +5,7 @@ const fs     = require('fs');
 const path   = require('path');
 const assert = require('assert');
 
-const pako  = require('../index');
+const pako  = require('..');
 
 // Load fixtures to test
 // return: { 'filename1': content1, 'filename2': content2, ...}

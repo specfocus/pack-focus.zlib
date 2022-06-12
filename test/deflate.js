@@ -1,7 +1,7 @@
 'use strict';
 
 
-const pako    = require('../index');
+const pako    = require('..');
 const assert  = require('assert');
 const fs      = require('fs');
 const path    = require('path');

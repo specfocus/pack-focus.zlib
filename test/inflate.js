@@ -6,7 +6,7 @@ const fs      = require('fs');
 const path    = require('path');
 const zlib    = require('zlib');
 
-const pako    = require('../index');
+const pako    = require('..');
 const { testInflate, loadSamples } = require('./helpers');
 
 
