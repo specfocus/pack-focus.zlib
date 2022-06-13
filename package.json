@@ -1,7 +1,7 @@
 {
   "name": "@specfocus/pack-focus.zlib",
   "description": "zlib port to javascript - fast, modularized, with browser support",
-  "version": "2.0.4",
+  "version": "0.0.1",
   "keywords": [
     "zlib",
     "deflate",
