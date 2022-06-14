@@ -37,8 +37,9 @@
   },
   "scripts": {
     "lint": "eslint .",
-    "test": "npm run lint && mocha",
-    "coverage": "npm run lint && nyc mocha && nyc report --reporter html",
+    "exjest": "yarn node --experimental-vm-modules $(yarn bin jest)",
+    "test": "yarn exjest --coverage",
+    "test:watch": "yarn exjest --watch",
     "build": "rollup -c",
     "build_fixtures": "node support/build_fixtures.js",
     "doc": "node support/build_doc.js",
