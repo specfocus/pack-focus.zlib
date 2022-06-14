@@ -2,6 +2,11 @@
   "name": "@specfocus/pack-focus.zlib",
   "description": "zlib port to javascript - fast, modularized, with browser support",
   "version": "0.0.1",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/specfocus/pack-focus.zlib.git"
+  },
   "keywords": [
     "zlib",
     "deflate",
@@ -22,7 +27,6 @@
     "lib/"
   ],
   "license": "(MIT AND Zlib)",
-  "repository": "nodeca/pako",
   "module": "./dist/pako.esm.mjs",
   "exports": {
     ".": {
