@@ -44,7 +44,7 @@
     "exjest": "yarn node --experimental-vm-modules $(yarn bin jest)",
     "test": "yarn exjest --coverage",
     "test:watch": "yarn exjest --watch",
-    "build": "rollup -c",
+    "build": "rimraf dist && tsc",
     "build_fixtures": "node support/build_fixtures.js",
     "doc": "node support/build_doc.js",
     "gh-doc": "npm run doc && gh-pages -d doc -f",
